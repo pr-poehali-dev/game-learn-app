@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +33,54 @@ const Index = () => {
   const [userEnergy] = useState(850);
   const [maxEnergy] = useState(1000);
   const [selectedCrystal, setSelectedCrystal] = useState<Crystal | null>(null);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+
+  useEffect(() => {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    setAudioContext(ctx);
+    return () => ctx.close();
+  }, []);
+
+  const playChakraSound = (frequency: number) => {
+    if (!audioContext) return;
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.frequency.value = frequency;
+    oscillator.type = 'sine';
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1.5);
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 1.5);
+  };
+
+  const getChakraFrequency = (chakra: string): number => {
+    const frequencies: Record<string, number> = {
+      'Муладхара': 256,
+      'Свадхистана': 288,
+      'Манипура': 320,
+      'Анахата': 341.3,
+      'Вишудха': 384,
+      'Аджна': 426.7,
+      'Сахасрара': 480,
+    };
+    return frequencies[chakra] || 440;
+  };
+
+  const handleCrystalSelect = (crystal: Crystal) => {
+    if (crystal.unlocked) {
+      setSelectedCrystal(crystal);
+      playChakraSound(getChakraFrequency(crystal.chakra));
+    }
+  };
+
+  const handleLevelComplete = () => {
+    setShowLevelUp(true);
+    playChakraSound(528);
+    setTimeout(() => setShowLevelUp(false), 3000);
+  };
 
   const crystals: Crystal[] = [
     {
@@ -174,6 +222,7 @@ const Index = () => {
               {mapLevels.map((level) => (
                 <button
                   key={level.id}
+                  onClick={() => level.id === userLevel && !level.completed && handleLevelComplete()}
                   className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${
                     level.unlocked ? 'scale-100 cursor-pointer hover:scale-110' : 'scale-90 opacity-50'
                   }`}
@@ -214,7 +263,7 @@ const Index = () => {
             {crystals.map((crystal) => (
               <Card
                 key={crystal.id}
-                onClick={() => crystal.unlocked && setSelectedCrystal(crystal)}
+                onClick={() => handleCrystalSelect(crystal)}
                 className={`p-4 bg-card border-border transition-all cursor-pointer ${
                   crystal.unlocked ? 'hover:scale-[1.02] hover:shadow-xl' : 'opacity-50'
                 }`}
@@ -421,6 +470,22 @@ const Index = () => {
                 </Button>
               </div>
             </Card>
+          </div>
+        )}
+
+        {showLevelUp && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
+            <div className="text-center animate-scale-in">
+              <div className="text-8xl mb-6 animate-bounce">✨</div>
+              <h2 className="text-4xl font-bold text-white mb-4">Уровень пройден!</h2>
+              <div className="text-6xl mb-6 animate-glow">💚</div>
+              <p className="text-xl text-white/80">Малахит открыт</p>
+              <div className="mt-8 flex justify-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-white/50 animate-pulse"></div>
+                <div className="w-3 h-3 rounded-full bg-white/50 animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                <div className="w-3 h-3 rounded-full bg-white/50 animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+              </div>
+            </div>
           </div>
         )}
       </div>
